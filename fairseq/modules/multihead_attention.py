@@ -499,7 +499,7 @@ class MultiheadAttention(nn.Module):
             need_weights = True
 
         is_tpu = query.device.type == "xla"
-
+        #print("mha forward: ", query, " ", query.shape) # usually a 3d tensor
         tgt_len, bsz, embed_dim = query.size()
         src_len = tgt_len
         if not self.skip_embed_dim_check:

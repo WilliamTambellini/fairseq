@@ -218,6 +218,7 @@ class SequenceGenerator(nn.Module):
             ],
         )
         net_input = sample["net_input"]
+        print("net_input: ", net_input)
 
         if "src_tokens" in net_input:
             src_tokens = net_input["src_tokens"]
@@ -247,6 +248,7 @@ class SequenceGenerator(nn.Module):
 
         # bsz: total number of sentences in beam
         # Note that src_tokens may have more than 2 dimensions (i.e. audio features)
+        print("src_tokens: ", src_tokens)
         bsz, src_len = src_tokens.size()[:2]
         beam_size = self.beam_size
 
@@ -272,6 +274,8 @@ class SequenceGenerator(nn.Module):
         # compute the encoder output for each beam
         with torch.autograd.profiler.record_function("EnsembleModel: forward_encoder"):
             encoder_outs = self.model.forward_encoder(net_input)
+        print("encoder_outs: ", encoder_outs) # 4 elements: encoder_out, encoder_padding_mask, encoder_embedding, encoder_states
+        print("encoder_out shape: ", encoder_outs[0]['encoder_out'][0].shape)
 
         # placeholder of indices for bsz * beam_size to hold tokens and accumulative scores
         new_order = torch.arange(bsz).view(-1, 1).repeat(1, beam_size).view(-1)
@@ -798,6 +802,8 @@ class EnsembleModel(nn.Module):
     def forward_encoder(self, net_input: Dict[str, Tensor]):
         if not self.has_encoder():
             return None
+        print("seq gen: forward_encoder: ", net_input)
+        print(self.models[0].encoder)
         return [model.encoder.forward_torchscript(net_input) for model in self.models]
 
     @torch.jit.export

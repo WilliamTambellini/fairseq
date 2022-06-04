@@ -339,7 +339,7 @@ class TransformerDecoderLayerBase(nn.Module):
 
         self.final_layer_norm = LayerNorm(self.embed_dim, export=cfg.export)
         self.need_attn = True
-
+        print("New TransformerDecoderLayerBase: need_attn:", self.need_attn)
         self.onnx_trace = False
 
     def build_fc1(self, input_dim, output_dim, q_noise, qn_block_size):
@@ -469,7 +469,8 @@ class TransformerDecoderLayerBase(nn.Module):
         x = self.residual_connection(x, residual)
         if not self.normalize_before:
             x = self.self_attn_layer_norm(x)
-
+            
+        print("tlayer: need_attn=", need_attn, " training=", self.training, " self.need_attn=", self.need_attn)
         if self.encoder_attn is not None and encoder_out is not None:
             residual = x
             if self.normalize_before:
@@ -484,6 +485,11 @@ class TransformerDecoderLayerBase(nn.Module):
                     saved_state["prev_key_padding_mask"] = prev_attn_state[2]
                 assert incremental_state is not None
                 self.encoder_attn._set_input_buffer(incremental_state, saved_state)
+ 
+            # To prevent "Could not cast value of type NoneType to bool" when torchscript export:
+            needweights = need_attn
+            if self.need_attn is not None and self.training is not None:
+              needweights = need_attn or (not self.training and self.need_attn)
 
             x, attn = self.encoder_attn(
                 query=x,
@@ -492,7 +498,7 @@ class TransformerDecoderLayerBase(nn.Module):
                 key_padding_mask=encoder_padding_mask,
                 incremental_state=incremental_state,
                 static_kv=True,
-                need_weights=need_attn or (not self.training and self.need_attn),
+                need_weights=needweights,
                 need_head_weights=need_head_weights,
             )
             x = self.dropout_module(x)
